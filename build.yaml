@@ -1,0 +1,24 @@
+targets:
+  $default:
+    builders:
+      odoo_bridge_client|odoo_model_helper:
+        generate_for:
+          - lib/models/**.dart
+      odoo_bridge_client|odoo_models_registry:
+        generate_for:
+          - lib/models/models.dart
+
+builders:
+  odoo_model_helper:
+    import: "package:odoo_bridge_client/builder/odoo_model_helper_generator.dart"
+    builder_factories: ["odooModelHelperGeneratorFactory"]
+    build_extensions: {".dart": [".model_helper.g.dart"]}
+    auto_apply: dependents
+    build_to: source
+
+  odoo_models_registry:
+    import: "package:odoo_bridge_client/builder/odoo_model_registry_builder.dart"
+    builder_factories: ["odooModelRegisterGeneratorFactory"]
+    build_extensions: {".dart": [".registry.g.dart"]}
+    auto_apply: dependents
+    build_to: source

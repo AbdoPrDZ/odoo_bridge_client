@@ -1,0 +1,9 @@
+targets:
+  $default:
+    builders:
+      odoo_bridge_client|odoo_model_helper:
+        generate_for:
+          - lib/models/**.dart
+      odoo_bridge_client|odoo_models_registry:
+        generate_for:
+          - lib/models/models.dart
