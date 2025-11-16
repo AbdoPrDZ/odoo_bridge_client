@@ -25,10 +25,9 @@ class Odoo {
     },
   );
 
-  /// Checks if the client is authenticated.
-  bool get isAuthenticated => _token != null;
-
   /// Gets the authentication token.
+  ///
+  /// - Returns: The authentication token as a [String].
   /// - Throws an [Exception] if not authenticated.
   String get token {
     if (!isAuthenticated) {
@@ -36,6 +35,23 @@ class Odoo {
     }
 
     return _token!;
+  }
+
+  ResUsers? _currentUser;
+
+  /// Checks if the client is authenticated.
+  bool get isAuthenticated => _currentUser != null;
+
+  /// Gets the current authenticated user.
+  ///
+  /// - Returns: The authenticated [ResUsers] object.
+  /// - Throws an [Exception] if not authenticated.
+  ResUsers get currentUser {
+    if (!isAuthenticated) {
+      throw Exception('Not authenticated. Please authenticate first.');
+    }
+
+    return _currentUser!;
   }
 
   /// Tests the API connection.
@@ -89,6 +105,7 @@ class Odoo {
         response.value is Map &&
         response.value.containsKey('token')) {
       _token = response.value['token'];
+
       return await getUser();
     }
 
@@ -100,16 +117,28 @@ class Odoo {
     );
   }
 
-  Future<APIResponse<ResUsers>> getUser() => call<ResUsers, ResUsers>(
-    'get_current_user',
-    parseResponse: (value) {
-      if (value is Map) {
-        return ModelRegistry.parse<ResUsers>(value)!;
-      }
+  /// Retrieves the current authenticated user.
+  ///
+  /// - Returns: An [APIResponse] containing the authenticated [ResUsers] object.
+  /// - Throws: An [Exception] if the user data is invalid.
+  Future<APIResponse<ResUsers>> getUser() async {
+    final response = await call<ResUsers, ResUsers>(
+      'get_current_user',
+      parseResponse: (value) {
+        if (value is Map) {
+          return ModelRegistry.parse<ResUsers>(value)!;
+        }
 
-      throw Exception('Invalid user data');
-    },
-  );
+        throw Exception('Invalid user data');
+      },
+    );
+
+    if (response.success) {
+      _currentUser = response.value;
+    }
+
+    return response;
+  }
 
   /// Generic method to call Odoo RPC methods.
   ///

@@ -1,3 +1,8 @@
+## [0.0.3] - 2025-11-16
+
+### Added
+- Add `currentUser` for current authenticated user to Odoo client.
+
 ## [0.0.2] - 2025-11-16
 ### Added
 - Implemented authenticate using token.
