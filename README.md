@@ -163,9 +163,17 @@ final odoo = Odoo(
 final isConnected = await odoo.test();
 
 // Authenticate
-final authResponse = await odoo.authenticate('username', 'password');
+final authResponse = await odoo.authenticate(login: 'username', password: 'password');
 if (authResponse.success) {
-  print('Authenticated as: ${authResponse.value?.name}');
+  print('Authenticated using login/password as: ${authResponse.value?.name}');
+}
+
+
+// Authenticate using token
+final token = 'auth-token';
+final authResponse = await odoo.authenticate(token: token);
+if (authResponse.success) {
+  print('Authenticated using token as: ${authResponse.value?.name}');
 }
 ```
 

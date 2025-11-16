@@ -50,11 +50,31 @@ class Odoo {
   ///
   /// - [login]: The user's login (username or email).
   /// - [password]: The user's password.
+  /// - [token]: An existing authentication token.
   /// - Returns: An [APIResponse] containing the authenticated [ResUsers] object.
-  Future<APIResponse<ResUsers>> authenticate(
-    String login,
-    String password,
-  ) async {
+  Future<APIResponse<ResUsers>> authenticate({
+    String? login,
+    String? password,
+    String? token,
+  }) async {
+    assert(
+      (login != null && password != null) || token != null,
+      'Either login and password or token must be provided for authentication.',
+    );
+
+    if (token != null) {
+      final response = await getUser();
+
+      if (response.success) {
+        _token = token;
+      }
+
+      /// Check if authentication failed and no login/password provided to retry using them
+      if (!response.success && login == null && password == null) {
+        return response;
+      }
+    }
+
     final response = await _api.post(
       'authenticate',
       data: {

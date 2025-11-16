@@ -1,3 +1,7 @@
+## [0.0.2] - 2025-11-16
+### Added
+- Implemented authenticate using token.
+
 ## [0.0.1] - 2025-11-16
 
 ### Added

@@ -245,8 +245,8 @@ class _OdooConnectionPageState extends State<OdooConnectionPage> {
       );
 
       final response = await _odoo!.authenticate(
-        _loginController.text.trim(),
-        _passwordController.text,
+        login: _loginController.text.trim(),
+        password: _passwordController.text,
       );
 
       setState(() {
