@@ -107,4 +107,22 @@ class APIResponse<T> {
       return APIResponse(false, "body: $body...", statusCode, body: strBody);
     }
   }
+
+  APIResponse<NT> copyWith<NT>({
+    bool? success,
+    String? message,
+    int? statusCode,
+    Map<String, String>? errors,
+    NT? value,
+    dynamic body,
+    Map<String, String>? headers,
+  }) => APIResponse<NT>(
+    success ?? this.success,
+    message ?? this.message,
+    statusCode ?? this.statusCode,
+    errors: errors ?? this.errors,
+    value: value ?? this.value as NT?,
+    body: body ?? this.body,
+    headers: headers ?? this.headers,
+  );
 }

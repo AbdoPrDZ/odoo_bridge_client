@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:odoo_bridge_client/models/models.dart';
 import 'package:odoo_bridge_client/odoo_bridge_client.dart';
 import 'models/models.dart';
 
@@ -549,16 +548,16 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
       ];
 
       // Use dynamic search based on selected model
-      late final response;
+      late APIResponse<List<int>> response;
       switch (_searchModel) {
         case 'Users':
-          response = await Odoo.search<ResUsers>(widget.odoo, domain);
+          response = await widget.odoo.search<ResUsers>(domain);
           break;
         case 'Companies':
-          response = await Odoo.search<ResCompany>(widget.odoo, domain);
+          response = await widget.odoo.search<ResCompany>(domain);
           break;
         case 'Partners':
-          response = await Odoo.search<ResPartner>(widget.odoo, domain);
+          response = await widget.odoo.search<ResPartner>(domain);
           break;
         default:
           throw Exception('Unsupported model: $_searchModel');
@@ -592,16 +591,16 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
 
     try {
       // Use dynamic search based on selected model
-      late final response;
+      late APIResponse<List<int>> response;
       switch (_searchModel) {
         case 'Users':
-          response = await Odoo.search<ResUsers>(widget.odoo, []);
+          response = await widget.odoo.search<ResUsers>([]);
           break;
         case 'Companies':
-          response = await Odoo.search<ResCompany>(widget.odoo, []);
+          response = await widget.odoo.search<ResCompany>([]);
           break;
         case 'Partners':
-          response = await Odoo.search<ResPartner>(widget.odoo, []);
+          response = await widget.odoo.search<ResPartner>([]);
           break;
         default:
           throw Exception('Unsupported model: $_searchModel');
@@ -634,16 +633,16 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
 
     try {
       // Use dynamic search count based on selected model
-      late final response;
+      late APIResponse<int> response;
       switch (_searchModel) {
         case 'Users':
-          response = await Odoo.searchCount<ResUsers>(widget.odoo, []);
+          response = await widget.odoo.searchCount<ResUsers>([]);
           break;
         case 'Companies':
-          response = await Odoo.searchCount<ResCompany>(widget.odoo, []);
+          response = await widget.odoo.searchCount<ResCompany>([]);
           break;
         case 'Partners':
-          response = await Odoo.searchCount<ResPartner>(widget.odoo, []);
+          response = await widget.odoo.searchCount<ResPartner>([]);
           break;
         default:
           throw Exception('Unsupported model: $_searchModel');
@@ -685,7 +684,7 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
 
     try {
       late final Map<String, dynamic> values;
-      late final response;
+      late APIResponse<List> response;
 
       switch (_searchModel) {
         case 'Users':
@@ -696,7 +695,7 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
             if (_emailController.text.trim().isNotEmpty)
               'email': _emailController.text.trim(),
           };
-          response = await Odoo.create<ResUsers>(widget.odoo, values);
+          response = await widget.odoo.create<ResUsers>(values);
           break;
         case 'Companies':
           values = {
@@ -704,7 +703,7 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
             if (_emailController.text.trim().isNotEmpty)
               'email': _emailController.text.trim(),
           };
-          response = await Odoo.create<ResCompany>(widget.odoo, values);
+          response = await widget.odoo.create<ResCompany>(values);
           break;
         case 'Partners':
           values = {
@@ -712,7 +711,7 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
             if (_emailController.text.trim().isNotEmpty)
               'email': _emailController.text.trim(),
           };
-          response = await Odoo.create<ResPartner>(widget.odoo, values);
+          response = await widget.odoo.create<ResPartner>(values);
           break;
         default:
           throw Exception('Unsupported model: $_searchModel');
@@ -776,7 +775,7 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Update ${currentName}'),
+        title: Text('Update $currentName'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -815,22 +814,16 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
       });
 
       try {
-        late final response;
+        late APIResponse<bool> response;
         switch (_searchModel) {
           case 'Users':
-            response = await Odoo.write<ResUsers>(widget.odoo, [
-              itemId,
-            ], result);
+            response = await widget.odoo.write<ResUsers>([itemId], result);
             break;
           case 'Companies':
-            response = await Odoo.write<ResCompany>(widget.odoo, [
-              itemId,
-            ], result);
+            response = await widget.odoo.write<ResCompany>([itemId], result);
             break;
           case 'Partners':
-            response = await Odoo.write<ResPartner>(widget.odoo, [
-              itemId,
-            ], result);
+            response = await widget.odoo.write<ResPartner>([itemId], result);
             break;
           default:
             throw Exception('Unsupported model: $_searchModel');
@@ -870,25 +863,22 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
     });
 
     try {
-      late final response;
+      late APIResponse<int> response;
       switch (_searchModel) {
         case 'Users':
-          response = await Odoo.copy<ResUsers>(
-            widget.odoo,
+          response = await widget.odoo.copy<ResUsers>(
             itemId,
             defaults: {'name': '$itemName (Copy)'},
           );
           break;
         case 'Companies':
-          response = await Odoo.copy<ResCompany>(
-            widget.odoo,
+          response = await widget.odoo.copy<ResCompany>(
             itemId,
             defaults: {'name': '$itemName (Copy)'},
           );
           break;
         case 'Partners':
-          response = await Odoo.copy<ResPartner>(
-            widget.odoo,
+          response = await widget.odoo.copy<ResPartner>(
             itemId,
             defaults: {'name': '$itemName (Copy)'},
           );
@@ -950,16 +940,16 @@ class _OdooOperationsPageState extends State<OdooOperationsPage> {
       });
 
       try {
-        late final response;
+        late APIResponse<bool> response;
         switch (_searchModel) {
           case 'Users':
-            response = await Odoo.unlink<ResUsers>(widget.odoo, [itemId]);
+            response = await widget.odoo.unlink<ResUsers>([itemId]);
             break;
           case 'Companies':
-            response = await Odoo.unlink<ResCompany>(widget.odoo, [itemId]);
+            response = await widget.odoo.unlink<ResCompany>([itemId]);
             break;
           case 'Partners':
-            response = await Odoo.unlink<ResPartner>(widget.odoo, [itemId]);
+            response = await widget.odoo.unlink<ResPartner>([itemId]);
             break;
           default:
             throw Exception('Unsupported model: $_searchModel');

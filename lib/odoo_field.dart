@@ -1,9 +1,19 @@
+import 'package:odoo_bridge_client/odoo_bridge_client.dart';
+
+part 'odoo_field_parser.dart';
+
 class OdooField<T> {
   final String name;
   final T? defaultValue;
   final bool nullable;
+  final String parser;
 
-  const OdooField(this.name, {this.defaultValue, this.nullable = false});
+  const OdooField(
+    this.name, {
+    this.defaultValue,
+    this.nullable = false,
+    required this.parser,
+  });
 
   T? checkDefaultValue() {
     if (!nullable && defaultValue == null) {
@@ -15,89 +25,44 @@ class OdooField<T> {
   }
 
   T? parse(dynamic rawValue) {
-    throw Exception('parse() not implemented for OdooField');
+    if (rawValue == null) {
+      return checkDefaultValue();
+    }
+
+    return OdooFieldParser.getParser(parser).parse(this, rawValue);
+  }
+
+  JT toJsonValue<JT>(JT value) {
+    if (value == null) {
+      if (!nullable && defaultValue == null) {
+        throw Exception(
+          'OdooField $name is not nullable and cannot be null in toJsonValue',
+        );
+      }
+      return defaultValue as JT;
+    }
+
+    return OdooFieldParser.getParser(parser).toJsonValue(this, value);
   }
 }
 
 class OdooIntegerField extends OdooField<int> {
-  const OdooIntegerField(super.name, {super.defaultValue, super.nullable});
-
-  @override
-  int? parse(dynamic rawValue) {
-    if (rawValue == null) {
-      return checkDefaultValue();
-    }
-
-    if (rawValue is int) {
-      return rawValue;
-    } else if (rawValue is String) {
-      return int.parse(rawValue);
-    } else {
-      throw Exception('Invalid raw value for OdooIntegerField');
-    }
-  }
+  const OdooIntegerField(super.name, {super.defaultValue, super.nullable})
+    : super(parser: 'int');
 }
 
 class OdooCharField extends OdooField<String> {
-  const OdooCharField(super.name, {super.defaultValue, super.nullable = false});
-
-  @override
-  String? parse(dynamic rawValue) {
-    if (rawValue == null) {
-      return checkDefaultValue();
-    }
-
-    if (rawValue is String) {
-      return rawValue;
-    } else {
-      throw Exception('Invalid raw value for OdooCharField');
-    }
-  }
+  const OdooCharField(super.name, {super.defaultValue, super.nullable = false})
+    : super(parser: 'char');
 }
 
 class OdooFloatField extends OdooField<double> {
-  const OdooFloatField(
-    super.name, {
-    super.defaultValue,
-    super.nullable = false,
-  });
-
-  @override
-  double? parse(dynamic rawValue) {
-    if (rawValue == null) {
-      return checkDefaultValue();
-    }
-
-    if (rawValue is double) {
-      return rawValue;
-    } else if (rawValue is int) {
-      return rawValue.toDouble();
-    } else if (rawValue is String) {
-      return double.parse(rawValue);
-    } else {
-      throw Exception('Invalid raw value for OdooFloatField');
-    }
-  }
+  const OdooFloatField(super.name, {super.defaultValue, super.nullable = false})
+    : super(parser: 'float');
 }
 
 class OdooBooleanField extends OdooField<bool> {
-  const OdooBooleanField(super.name);
-
-  @override
-  bool? parse(dynamic rawValue) {
-    if (rawValue is bool) {
-      return rawValue;
-    } else if (rawValue is String &&
-        ['true', 'false'].contains(rawValue.toLowerCase())) {
-      return rawValue.toLowerCase() == 'true';
-    } else if (rawValue is int) {
-      return rawValue != 0;
-    } else if (rawValue == null) {
-      return null;
-    } else {
-      throw Exception('Invalid raw value for OdooBooleanField');
-    }
-  }
+  const OdooBooleanField(super.name) : super(parser: 'bool');
 }
 
 class OdooDateTimeField extends OdooField<DateTime> {
@@ -105,20 +70,27 @@ class OdooDateTimeField extends OdooField<DateTime> {
     super.name, {
     super.defaultValue,
     super.nullable = false,
-  });
+  }) : super(parser: 'datetime');
+}
 
-  @override
-  DateTime? parse(dynamic rawValue) {
-    if (rawValue == null) {
-      return checkDefaultValue();
-    }
+class OdooOne2ManyField extends OdooField<List<OdooModelItem>> {
+  final String relatedModel;
 
-    if (rawValue is DateTime) {
-      return rawValue;
-    } else if (rawValue is String) {
-      return DateTime.parse(rawValue);
-    } else {
-      throw Exception('Invalid raw value for OdooDateTimeField');
-    }
-  }
+  const OdooOne2ManyField(
+    super.name, {
+    super.defaultValue,
+    super.nullable = false,
+    required this.relatedModel,
+  }) : super(parser: 'one2many');
+}
+
+class OdooMany2OneField extends OdooField<OdooModelItem> {
+  final String relatedModel;
+
+  const OdooMany2OneField(
+    super.name, {
+    super.defaultValue,
+    super.nullable = false,
+    required this.relatedModel,
+  }) : super(parser: 'many2one');
 }

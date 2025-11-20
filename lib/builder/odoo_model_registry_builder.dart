@@ -6,8 +6,9 @@ import 'package:build/build.dart';
 
 import 'metadata.dart';
 
-/// Global collector to gather all models across all build steps
+/// Global collector to gather all models/field parsers across all build steps
 final _collectedModels = <ModelMeta>[];
+final _collectedParsers = <ClassElement>{};
 
 Builder odooModelRegisterGeneratorFactory(BuilderOptions options) =>
     _OdooRegistryBuilder();
@@ -22,6 +23,7 @@ class _OdooRegistryBuilder implements Builder {
   Future<void> build(BuildStep buildStep) async {
     // Clear previous collections
     _collectedModels.clear();
+    _collectedParsers.clear();
 
     // Extract model assets from exports
     final modelsAssets = await _extractModelAssetsFromExports(buildStep);
@@ -95,6 +97,7 @@ class _OdooRegistryBuilder implements Builder {
       try {
         final lib = await buildStep.resolver.libraryFor(asset);
         await _scanLibraryForModels(lib);
+        await _scanLibraryForFieldParsers(lib);
       } catch (e) {
         // Skip assets that can't be resolved (e.g., Dart SDK libraries)
         continue;
@@ -112,20 +115,38 @@ class _OdooRegistryBuilder implements Builder {
     }
   }
 
+  /// Scans a library for field parser classes and adds them to the collection
+  Future<void> _scanLibraryForFieldParsers(LibraryElement lib) async {
+    for (final classElement in lib.classes) {
+      final parserElement = _extractFieldParserElement(classElement);
+      if (parserElement != null) {
+        _collectedParsers.add(parserElement);
+      }
+    }
+  }
+
   /// Extracts model metadata from a class element, returns null if not a model
   ModelMeta? _extractModelMetadata(ClassElement classElement) {
     final modelAnn = _getModelAnnotation(classElement);
     if (modelAnn == null) return null;
 
-    final className = classElement.name;
-    final modelName =
-        modelAnn.getField('modelName')?.toStringValue() ?? className;
+    final modelName = modelAnn.getField('modelName')?.toStringValue();
+    if (modelName == null) return null;
 
     final fields = _extractFieldMetadata(classElement);
 
     if (fields.isEmpty) return null;
 
-    return ModelMeta(className!, modelName!, fields, "${className}Helper");
+    final className = classElement.name;
+    return ModelMeta(className!, modelName, fields, "${className}Helper");
+  }
+
+  /// Extracts field parser metadata from a class element, returns null if not a parser
+  ClassElement? _extractFieldParserElement(ClassElement classElement) {
+    final parserAnn = _getParserAnnotation(classElement);
+    if (parserAnn == null) return null;
+
+    return classElement;
   }
 
   /// Extracts field metadata from a class element
@@ -137,14 +158,10 @@ class _OdooRegistryBuilder implements Builder {
 
       for (final meta in field.metadata.annotations) {
         final obj = meta.computeConstantValue();
-        if (obj == null) continue;
+        if (obj == null || obj.constructorInvocation == null) continue;
 
-        final type = obj.type?.getDisplayString() ?? "";
-        if (FieldKind.isOdooFieldAnnotation(type)) {
-          final fieldInfo = createFieldInfoFromAnnotation(field, meta, obj);
-          if (fieldInfo != null) {
-            fields.add(fieldInfo);
-          }
+        if (obj.type != null && FieldInfo.isOdooFieldAnnotation(obj)) {
+          fields.add(FieldInfo.fromConstructorInvocation(field, meta, obj));
           break;
         }
       }
@@ -179,33 +196,60 @@ class _OdooRegistryBuilder implements Builder {
     buffer.writeln("class OdooModelsRegistry {");
     buffer.writeln("  static void registerAll() {");
 
-    for (final m in _collectedModels) {
-      _writeModelRegistration(buffer, m);
-    }
+    _writeCustomFieldParsersRegistration(buffer);
+    _writeModelsRegistration(buffer);
 
     buffer.writeln("  }");
     buffer.writeln("}");
   }
 
+  /// Writes registration code for custom field parsers
+  void _writeCustomFieldParsersRegistration(StringBuffer buffer) {
+    if (_collectedParsers.isEmpty) return;
+
+    buffer.writeln("    // Register custom field parsers");
+    for (final element in _collectedParsers) {
+      buffer.writeln("    OdooFieldParser.registerParser(${element.name}());");
+    }
+  }
+
+  void _writeModelsRegistration(StringBuffer buffer) {
+    if (_collectedModels.isEmpty) return;
+
+    buffer.writeln();
+    buffer.writeln("    // Register Odoo models");
+    for (final m in _collectedModels) {
+      _writeModelRegistration(buffer, m);
+    }
+  }
+
   /// Writes a single model registration
   void _writeModelRegistration(StringBuffer buffer, ModelMeta model) {
+    buffer.writeln("    // Register model: ${model.modelName}");
     buffer.writeln(
       "    ModelRegistry.registerModel<${model.className}>('${model.modelName}', [",
     );
 
     for (final field in model.fields) {
-      buffer.writeln(
-        "      ${field.fieldKind.fieldCtor(field.odooName, nullable: field.nullable, defaultValue: field.defaultValue)},",
-      );
+      buffer.writeln("      ${field.fieldCtor()},");
     }
 
     buffer.writeln("    ], ${model.helperClass}.fromJson);");
+    buffer.writeln();
   }
 
   DartObject? _getModelAnnotation(Element e) {
     for (final meta in e.metadata.annotations) {
       final obj = meta.computeConstantValue();
       if (obj?.type?.getDisplayString() == 'OdooModel') return obj;
+    }
+    return null;
+  }
+
+  DartObject? _getParserAnnotation(Element e) {
+    for (final meta in e.metadata.annotations) {
+      final obj = meta.computeConstantValue();
+      if (obj?.type?.getDisplayString() == 'OdooFieldParser') return obj;
     }
     return null;
   }

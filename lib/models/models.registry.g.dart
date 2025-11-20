@@ -5,6 +5,8 @@ part of 'models.dart';
 
 class BaseOdooModelsRegistry {
   static void registerAll() {
+    // Register Odoo models
+    // Register model: res.users
     ModelRegistry.registerModel<ResUsers>('res.users', [
       OdooIntegerField('id'),
       OdooCharField('name'),
@@ -15,6 +17,8 @@ class BaseOdooModelsRegistry {
       OdooIntegerField('create_uid', nullable: true),
       OdooIntegerField('write_uid', nullable: true),
     ], ResUsersHelper.fromJson);
+
+    // Register model: res.company
     ModelRegistry.registerModel<ResCompany>('res.company', [
       OdooIntegerField('id'),
       OdooCharField('name'),

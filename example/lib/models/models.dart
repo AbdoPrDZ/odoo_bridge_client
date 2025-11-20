@@ -1,5 +1,4 @@
-import 'package:odoo_bridge_client/odoo_model_registry.dart';
-import 'package:odoo_bridge_client/odoo_field.dart';
+import 'package:odoo_bridge_client/odoo_bridge_client.dart';
 
 import 'res_partner.dart';
 

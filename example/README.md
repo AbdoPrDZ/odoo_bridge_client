@@ -198,7 +198,7 @@ final fields = await Odoo.getFields<ResPartner>(odoo);
 final result = await Odoo.callMethod<ResPartner>(
   odoo, [1], 'custom_method', 
   args: ['param1'], 
-  kwargs: {'key': 'value'}
+  kwArgs: {'key': 'value'}
 );
 ```
 

@@ -5,11 +5,15 @@ part of 'models.dart';
 
 class OdooModelsRegistry {
   static void registerAll() {
+
+    // Register Odoo models
+    // Register model: res.partner
     ModelRegistry.registerModel<ResPartner>('res.partner', [
       OdooIntegerField('id'),
       OdooCharField('name'),
       OdooCharField('email', nullable: true),
       OdooDateTimeField('create_date', nullable: true),
     ], ResPartnerHelper.fromJson);
+
   }
 }

@@ -2,6 +2,24 @@ import 'odoo_model_registry.dart';
 import 'models/res_users.dart';
 import 'src/api/api.dart';
 
+export 'odoo_model.dart';
+export 'odoo_model_registry.dart';
+export 'src/api/api.dart';
+export 'models/models.dart';
+
+/// Default RPC function mappings.
+const Map<String, String> DEFAULT_RPC_FUNCTIONS = {
+  'search': 'app_search',
+  'search_read': 'app_search_read',
+  'search_count': 'app_search_count',
+  'read': 'app_read',
+  'create': 'app_create',
+  'write': 'app_write',
+  'unlink': 'app_unlink',
+  'copy': 'app_copy',
+  'fields_get': 'app_fields_get',
+};
+
 class Odoo {
   /// Base URL of the Odoo server.
   final String baseUrl;
@@ -12,9 +30,16 @@ class Odoo {
   /// API version to use.
   final int version;
 
+  final Map<String, String> rpcFunctions;
+
   String? _token;
 
-  Odoo({required this.baseUrl, required this.targetName, this.version = 1});
+  Odoo({
+    required this.baseUrl,
+    required this.targetName,
+    this.version = 1,
+    this.rpcFunctions = DEFAULT_RPC_FUNCTIONS,
+  });
 
   API get _api => API(
     apiUrl: "$baseUrl/api/v$version/$targetName",
@@ -79,14 +104,12 @@ class Odoo {
     );
 
     if (token != null) {
+      _token = token;
       final response = await getUser();
-
-      if (response.success) {
-        _token = token;
-      }
 
       /// Check if authentication failed and no login/password provided to retry using them
       if (!response.success && login == null && password == null) {
+        _token = null;
         return response;
       }
     }
@@ -146,17 +169,17 @@ class Odoo {
   /// - [MT]: The model type associated with the RPC method.
   /// - [method]: The RPC method name to call.
   /// - [args]: Positional arguments for the RPC method.
-  /// - [kwargs]: Keyword arguments for the RPC method.
+  /// - [kwArgs]: Keyword arguments for the RPC method.
   /// - [parseResponse]: Optional function to parse the response value.
   /// - Returns: An [APIResponse] containing the response value of type [RT].
   Future<APIResponse<RT>> call<RT, MT>(
     String method, {
     List<dynamic> args = const [],
-    Map<String, dynamic> kwargs = const {},
+    Map<String, dynamic> kwArgs = const {},
     RT Function(dynamic value)? parseResponse,
   }) => _api.post<RT>(
     'rpc/${ModelRegistry.getModelName<MT>()}/$method',
-    data: {'args': args, 'kwargs': kwargs},
+    data: {'args': args, 'kwargs': kwArgs},
     headers: {'Content-Type': 'application/json'},
     parseResponse: parseResponse,
   );
@@ -166,13 +189,21 @@ class Odoo {
   /// - [MT]: The model type to search.
   /// - [domain]: The search criteria as a list (Odoo domain format).
   /// - Returns: An [APIResponse] containing a list of records of type [MT].
-  static Future<APIResponse<List<MT>>> search<MT>(
-    Odoo odoo,
-    List<dynamic> domain,
-  ) => odoo.call<List<MT>, MT>(
-    'search_read',
+  Future<APIResponse<List<MT>>> searchRead<MT>({
+    List<dynamic> domain = const [],
+    List<String>? fields,
+    int offset = 0,
+    int? limit,
+    String? order,
+  }) => call<List<MT>, MT>(
+    rpcFunctions['search_read']!,
     args: [domain],
-    kwargs: {'fields': ModelRegistry.getFieldNames<MT>()},
+    kwArgs: {
+      'fields': ModelRegistry.getFieldNames<MT>(),
+      if (limit != null) 'limit': limit,
+      'offset': offset,
+      if (order != null) 'order_by': order,
+    },
     parseResponse: (value) {
       if (value is List) {
         return value.map((e) {
@@ -193,21 +224,23 @@ class Odoo {
   /// - [MT]: The model type to create.
   /// - [values]: The field values for the new record.
   /// - Returns: An [APIResponse] containing the ID of the created record.
-  static Future<APIResponse<int>> create<MT>(
-    Odoo odoo,
-    Map<String, dynamic> values,
-  ) => odoo.call<int, MT>(
-    'create',
-    args: [values],
-    parseResponse: (value) {
-      if (value is int) {
-        return value;
-      } else if (value is Map && value.containsKey('id')) {
-        return value['id'] as int;
-      }
-      throw Exception('Invalid create response');
-    },
-  );
+  Future<APIResponse<List<MT>>> create<MT>(Map<String, dynamic> values) =>
+      call<List<MT>, MT>(
+        rpcFunctions['create']!,
+        args: [values],
+        parseResponse: (value) {
+          if (value is List) {
+            return value.map((e) {
+              if (e is Map) {
+                return ModelRegistry.parse<MT>(e)!;
+              } else {
+                throw Exception('Invalid record data');
+              }
+            }).toList();
+          }
+          throw Exception('Invalid read response');
+        },
+      );
 
   /// Reads records of type [MT] by their IDs.
   ///
@@ -215,14 +248,21 @@ class Odoo {
   /// - [ids]: List of record IDs to read.
   /// - [fields]: Optional list of field names to read. If null, reads all fields.
   /// - Returns: An [APIResponse] containing a list of records of type [MT].
-  static Future<APIResponse<List<MT>>> read<MT>(
-    Odoo odoo,
+  Future<APIResponse<List<MT>>> read<MT>(
     List<int> ids, {
     List<String>? fields,
-  }) => odoo.call<List<MT>, MT>(
-    'read',
+    int offset = 0,
+    int? limit,
+    String? order,
+  }) => call<List<MT>, MT>(
+    rpcFunctions['read']!,
     args: [ids],
-    kwargs: {'fields': fields ?? ModelRegistry.getFieldNames<MT>()},
+    kwArgs: {
+      'fields': fields ?? ModelRegistry.getFieldNames<MT>(),
+      'offset': offset,
+      if (limit != null) 'limit': limit,
+      if (order != null) 'order': order,
+    },
     parseResponse: (value) {
       if (value is List) {
         return value.map((e) {
@@ -243,12 +283,11 @@ class Odoo {
   /// - [ids]: List of record IDs to update.
   /// - [values]: The field values to update.
   /// - Returns: An [APIResponse] containing true if successful.
-  static Future<APIResponse<bool>> write<MT>(
-    Odoo odoo,
+  Future<APIResponse<bool>> write<MT>(
     List<int> ids,
     Map<String, dynamic> values,
-  ) => odoo.call<bool, MT>(
-    'write',
+  ) => call<bool, MT>(
+    rpcFunctions['write']!,
     args: [ids, values],
     parseResponse: (value) {
       if (value is bool) {
@@ -263,17 +302,16 @@ class Odoo {
   /// - [MT]: The model type to delete from.
   /// - [ids]: List of record IDs to delete.
   /// - Returns: An [APIResponse] containing true if successful.
-  static Future<APIResponse<bool>> unlink<MT>(Odoo odoo, List<int> ids) =>
-      odoo.call<bool, MT>(
-        'unlink',
-        args: [ids],
-        parseResponse: (value) {
-          if (value is bool) {
-            return value;
-          }
-          throw Exception('Invalid unlink response');
-        },
-      );
+  Future<APIResponse<bool>> unlink<MT>(List<int> ids) => call<bool, MT>(
+    rpcFunctions['unlink']!,
+    args: [ids],
+    parseResponse: (value) {
+      if (value is bool) {
+        return value;
+      }
+      throw Exception('Invalid unlink response');
+    },
+  );
 
   /// Searches for record IDs of type [MT] based on the provided [domain] criteria.
   ///
@@ -283,16 +321,15 @@ class Odoo {
   /// - [limit]: Maximum number of records to return.
   /// - [order]: Sort order specification.
   /// - Returns: An [APIResponse] containing a list of record IDs.
-  static Future<APIResponse<List<int>>> searchIds<MT>(
-    Odoo odoo,
+  Future<APIResponse<List<int>>> search<MT>(
     List<dynamic> domain, {
     int offset = 0,
     int? limit,
     String? order,
-  }) => odoo.call<List<int>, MT>(
-    'search',
+  }) => call<List<int>, MT>(
+    rpcFunctions['search']!,
     args: [domain],
-    kwargs: {
+    kwArgs: {
       'offset': offset,
       if (limit != null) 'limit': limit,
       if (order != null) 'order': order,
@@ -310,30 +347,25 @@ class Odoo {
   /// - [MT]: The model type to count.
   /// - [domain]: The search criteria as a list (Odoo domain format).
   /// - Returns: An [APIResponse] containing the record count.
-  static Future<APIResponse<int>> searchCount<MT>(
-    Odoo odoo,
-    List<dynamic> domain,
-  ) => odoo.call<int, MT>(
-    'search_count',
-    args: [domain],
-    parseResponse: (value) {
-      if (value is int) {
-        return value;
-      }
-      throw Exception('Invalid search_count response');
-    },
-  );
+  Future<APIResponse<int>> searchCount<MT>(List<dynamic> domain) =>
+      call<int, MT>(
+        rpcFunctions['search_count']!,
+        args: [domain],
+        parseResponse: (value) {
+          if (value is int) {
+            return value;
+          }
+          throw Exception('Invalid search_count response');
+        },
+      );
 
   /// Checks if records exist for the given [domain] criteria.
   ///
   /// - [MT]: The model type to check.
   /// - [domain]: The search criteria as a list (Odoo domain format).
   /// - Returns: An [APIResponse] containing true if records exist, false otherwise.
-  static Future<APIResponse<bool>> exists<MT>(
-    Odoo odoo,
-    List<dynamic> domain,
-  ) async {
-    final countResponse = await searchCount<MT>(odoo, domain);
+  Future<APIResponse<bool>> exists<MT>(List<dynamic> domain) async {
+    final countResponse = await searchCount<MT>(domain);
     if (countResponse.success) {
       return APIResponse<bool>(
         true,
@@ -355,12 +387,11 @@ class Odoo {
   /// - [MT]: The model type to get fields for.
   /// - [attributes]: List of field attributes to retrieve.
   /// - Returns: An [APIResponse] containing the fields information.
-  static Future<APIResponse<Map<String, dynamic>>> getFields<MT>(
-    Odoo odoo, {
+  Future<APIResponse<Map<String, dynamic>>> getFields<MT>({
     List<String> attributes = const ['string', 'help', 'type'],
-  }) => odoo.call<Map<String, dynamic>, MT>(
-    'fields_get',
-    kwargs: {'attributes': attributes},
+  }) => call<Map<String, dynamic>, MT>(
+    rpcFunctions['fields_get']!,
+    kwArgs: {'attributes': attributes},
     parseResponse: (value) {
       if (value is Map<String, dynamic>) {
         return value;
@@ -375,20 +406,16 @@ class Odoo {
   /// - [id]: The ID of the record to copy.
   /// - [defaults]: Optional field values to override in the copy.
   /// - Returns: An [APIResponse] containing the ID of the copied record.
-  static Future<APIResponse<int>> copy<MT>(
-    Odoo odoo,
-    int id, {
-    Map<String, dynamic>? defaults,
-  }) {
-    final kwargs = <String, dynamic>{};
+  Future<APIResponse<int>> copy<MT>(int id, {Map<String, dynamic>? defaults}) {
+    final kwArgs = <String, dynamic>{};
     if (defaults != null) {
-      kwargs['default'] = defaults;
+      kwArgs['default'] = defaults;
     }
 
-    return odoo.call<int, MT>(
-      'copy',
+    return call<int, MT>(
+      rpcFunctions['copy']!,
       args: [id],
-      kwargs: kwargs,
+      kwArgs: kwArgs,
       parseResponse: (value) {
         if (value is int) {
           return value;
@@ -399,20 +426,4 @@ class Odoo {
       },
     );
   }
-
-  /// Calls a custom method on records of type [MT].
-  ///
-  /// - [MT]: The model type to call the method on.
-  /// - [ids]: List of record IDs to call the method on.
-  /// - [method]: The method name to call.
-  /// - [args]: Optional positional arguments for the method.
-  /// - [kwargs]: Optional keyword arguments for the method.
-  /// - Returns: An [APIResponse] containing the method result.
-  static Future<APIResponse<dynamic>> callMethod<MT>(
-    Odoo odoo,
-    List<int> ids,
-    String method, {
-    List<dynamic> args = const [],
-    Map<String, dynamic> kwargs = const {},
-  }) => odoo.call<dynamic, MT>(method, args: [ids, ...args], kwargs: kwargs);
 }

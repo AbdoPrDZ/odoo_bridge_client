@@ -72,11 +72,18 @@ class ModelRegistry {
   static T? parse<T>(Map json) {
     json = Map<String, dynamic>.from(json).clean();
 
-    return getParser<T>()({
-      for (final field in ModelRegistry.getFields<T>())
-        field.name: field.parse(json[field.name]),
-    });
+    final parser = getParser<T>();
+    final fields = getFields<T>();
+
+    final newJson = {
+      for (final field in fields) field.name: field.parse(json[field.name]),
+    };
+
+    return parser(newJson);
   }
+
+  static dynamic toJsonValue<T>(String fieldName, dynamic value) =>
+      get<T>().fields[fieldName]!.toJsonValue(value);
 }
 
 class ModelRegistryItem<T> {

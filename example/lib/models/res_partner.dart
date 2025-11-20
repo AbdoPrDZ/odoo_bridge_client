@@ -1,4 +1,4 @@
-import 'package:odoo_bridge_client/odoo_model.dart';
+import 'package:odoo_bridge_client/odoo_bridge_client.dart';
 
 part 'res_partner.model_helper.g.dart';
 
