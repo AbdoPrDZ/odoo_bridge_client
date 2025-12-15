@@ -259,14 +259,22 @@ class OdooMany2OneFieldParser extends OdooFieldParser {
 }
 
 class OdooModelItem {
-  final int? id;
   final String odooModel;
   final String displayName;
+  final int? id;
+  final DateTime? createDate;
+  final OdooModelItem? createUID;
+  final DateTime? writeDate;
+  final OdooModelItem? writeUID;
 
   const OdooModelItem({
-    this.id,
     required this.odooModel,
     required this.displayName,
+    this.id,
+    this.createDate,
+    this.createUID,
+    this.writeDate,
+    this.writeUID,
   });
 
   Future<MT> fetchValue<MT>(Odoo odoo) async {
